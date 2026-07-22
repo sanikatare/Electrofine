@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 node_modules/
 .next/
 dist/
@@ -6,3 +7,76 @@ out/
 .env
 .env.local
 coverage/
+=======
+# Dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+
+# Production
+build/
+dist/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Prisma
+prisma/dev.db
+prisma/dev.db-journal
+
+# TypeScript
+*.tsbuildinfo
+
+# Coverage
+coverage/
+
+# Cache
+.cache/
+.turbo/
+.eslintcache
+
+# VS Code
+.vscode/
+
+# JetBrains
+.idea/
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
+
+# Vercel
+.vercel/
+
+# Package managers
+.pnp
+.pnp.js
+
+# Local certificates
+*.pem
+
+# Generated files
+*.pid
+*.seed
+
+# Misc
+*.tgz
+>>>>>>> eb7ab9cc43d369bb315cf1fedef037c9d63df382
