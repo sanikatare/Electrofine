@@ -1,0 +1,403 @@
+// ==========================================================================
+// ElectroFine - Prisma Schema (MongoDB)
+// ==========================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider     = "mongodb"
+  url          = env("DATABASE_URL")
+  relationMode = "prisma"
+}
+
+// ==========================================================================
+// Enums
+// ==========================================================================
+
+enum Role {
+  ADMIN
+  STAFF
+}
+
+enum AvailabilityStatus {
+  AVAILABLE
+  BUSY
+  OFFLINE
+}
+
+enum RequestStatus {
+  PENDING
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  UPI
+  CARD
+  WALLET
+  BANK_TRANSFER
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum NotificationType {
+  PICKUP_UPDATE
+  PAYMENT
+  PROMOTION
+  SYSTEM
+  FEEDBACK
+}
+
+enum NotificationChannel {
+  EMAIL
+  SMS
+  PUSH
+  IN_APP
+}
+
+enum AddressLabel {
+  HOME
+  WORK
+  OTHER
+}
+
+enum FeedbackModerationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// ==========================================================================
+// Auth / Admin
+// ==========================================================================
+
+model User {
+  id           String    @id @default(cuid()) @map("_id")
+  name         String
+  email        String    @unique
+  passwordHash String
+  role         Role      @default(STAFF)
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+
+  sessions Session[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([role])
+  @@index([isActive])
+  @@map("users")
+}
+
+model Session {
+  id           String   @id @default(cuid()) @map("_id")
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+// ==========================================================================
+// Customer
+// ==========================================================================
+
+model Customer {
+  id           String  @id @default(cuid()) @map("_id")
+  name         String
+  email        String? @unique
+  phone        String  @unique
+  passwordHash String?
+  isActive     Boolean @default(true)
+
+  addresses      Address[]
+  pickupRequests PickupRequest[]
+  payments       Payment[]
+  feedbacks      Feedback[]
+  notifications  Notification[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("customers")
+}
+
+// ==========================================================================
+// Kabadiwala (Collector)
+// ==========================================================================
+
+model Kabadiwala {
+  id            String             @id @default(cuid()) @map("_id")
+  name          String
+  phone         String             @unique
+  email         String?            @unique
+  passwordHash  String?
+  vehicleNumber String?
+  serviceArea   String?
+  availability  AvailabilityStatus @default(AVAILABLE)
+  rating        Float?             @default(0)
+  isActive      Boolean            @default(true)
+
+  addresses      Address[]
+  pickupRequests PickupRequest[]
+  feedbacks      Feedback[]
+  notifications  Notification[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([availability])
+  @@index([serviceArea])
+  @@index([isActive])
+  @@map("kabadiwalas")
+}
+
+// ==========================================================================
+// Address (shared by Customer / Kabadiwala, referenced by PickupRequest)
+// ==========================================================================
+
+model Address {
+  id        String       @id @default(cuid()) @map("_id")
+  label     AddressLabel @default(HOME)
+  line1     String
+  line2     String?
+  city      String
+  state     String
+  pincode   String
+  latitude  Float?
+  longitude Float?
+
+  customerId   String?
+  customer     Customer?   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  kabadiwalaId String?
+  kabadiwala   Kabadiwala? @relation(fields: [kabadiwalaId], references: [id], onDelete: Cascade)
+
+  pickupRequests PickupRequest[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([customerId])
+  @@index([kabadiwalaId])
+  @@index([city, pincode])
+  @@map("addresses")
+}
+
+// ==========================================================================
+// Category & Pricing
+// ==========================================================================
+
+model Category {
+  id          String  @id @default(cuid()) @map("_id")
+  name        String  @unique
+  description String?
+  isActive    Boolean @default(true)
+
+  pickupItems PickupItem[]
+  pricings    Pricing[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+  @@map("categories")
+}
+
+model Pricing {
+  id            String    @id @default(cuid()) @map("_id")
+  categoryId    String
+  pricePerKg    Float
+  minimumWeight Float     @default(0)
+  bonusAmount   Float   @default(0)
+  effectiveFrom DateTime  @default(now())
+  effectiveTo   DateTime?
+  isActive      Boolean   @default(true)
+
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([categoryId])
+  @@index([isActive])
+  @@index([effectiveFrom, effectiveTo])
+  @@map("pricings")
+}
+
+// ==========================================================================
+// Pickup Request & Items
+// ==========================================================================
+
+model PickupRequest {
+  id            String        @id @default(cuid()) @map("_id")
+  customerId    String
+  addressId     String
+  kabadiwalaId  String?
+  status        RequestStatus @default(PENDING)
+  scheduledDate DateTime
+  completedAt   DateTime?
+  notes         String?
+  totalWeight   Float?        @default(0)
+  totalAmount   Float?
+
+  customer   Customer    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  address    Address     @relation(fields: [addressId], references: [id])
+  kabadiwala Kabadiwala? @relation(fields: [kabadiwalaId], references: [id])
+
+  items         PickupItem[]
+  images        PickupImage[]
+  payment       Payment?
+  feedback      Feedback?
+  notifications Notification[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([customerId])
+  @@index([kabadiwalaId])
+  @@index([addressId])
+  @@index([status])
+  @@index([scheduledDate])
+  @@map("pickup_requests")
+}
+
+model PickupItem {
+  id              String  @id @default(cuid()) @map("_id")
+  pickupRequestId String
+  categoryId      String
+  description     String?
+  weight          Float
+  unitPrice       Float
+  subtotal        Float
+
+  pickupRequest PickupRequest @relation(fields: [pickupRequestId], references: [id], onDelete: Cascade)
+  category      Category      @relation(fields: [categoryId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([pickupRequestId])
+  @@index([categoryId])
+  @@map("pickup_items")
+}
+
+// ==========================================================================
+// Pickup Images (Cloudinary)
+// ==========================================================================
+
+model PickupImage {
+  id              String   @id @default(cuid()) @map("_id")
+  pickupRequestId String
+  url             String
+  publicId        String   @unique
+  uploadedById    String
+  uploadedByType  String
+
+  pickupRequest PickupRequest @relation(fields: [pickupRequestId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([pickupRequestId])
+  @@map("pickup_images")
+}
+
+// ==========================================================================
+// Payment
+// ==========================================================================
+
+model Payment {
+  id              String        @id @default(cuid()) @map("_id")
+  pickupRequestId String        @unique
+  customerId      String
+  amount          Float
+  method          PaymentMethod
+  status          PaymentStatus @default(PENDING)
+  transactionRef  String?       @unique
+  paidAt          DateTime?
+
+  pickupRequest PickupRequest @relation(fields: [pickupRequestId], references: [id], onDelete: Cascade)
+  customer      Customer      @relation(fields: [customerId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([customerId])
+  @@index([status])
+  @@map("payments")
+}
+
+// ==========================================================================
+// Feedback
+// ==========================================================================
+
+model Feedback {
+  id              String  @id @default(cuid()) @map("_id")
+  pickupRequestId String  @unique
+  customerId      String
+  kabadiwalaId    String?
+  rating          Int
+  comment         String?
+  moderationStatus FeedbackModerationStatus @default(PENDING)
+  moderationNote   String?
+  moderatedAt      DateTime?
+
+  pickupRequest PickupRequest @relation(fields: [pickupRequestId], references: [id], onDelete: Cascade)
+  customer      Customer      @relation(fields: [customerId], references: [id])
+  kabadiwala    Kabadiwala?   @relation(fields: [kabadiwalaId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([customerId])
+  @@index([kabadiwalaId])
+  @@index([rating])
+  @@index([moderationStatus])
+  @@map("feedbacks")
+}
+
+// ==========================================================================
+// Notification
+// ==========================================================================
+
+model Notification {
+  id              String              @id @default(cuid()) @map("_id")
+  type            NotificationType
+  channel         NotificationChannel @default(IN_APP)
+  title           String
+  message         String
+  isRead          Boolean             @default(false)
+  customerId      String?
+  kabadiwalaId    String?
+  pickupRequestId String?
+
+  customer      Customer?      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  kabadiwala    Kabadiwala?    @relation(fields: [kabadiwalaId], references: [id], onDelete: Cascade)
+  pickupRequest PickupRequest? @relation(fields: [pickupRequestId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([customerId])
+  @@index([kabadiwalaId])
+  @@index([pickupRequestId])
+  @@index([isRead])
+  @@index([type])
+  @@map("notifications")
+}
