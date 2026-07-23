@@ -4,38 +4,6 @@
 
 Electrofine is a modern e-waste recycling platform that helps individuals and businesses dispose of electronic waste responsibly. Users can schedule pickups, monitor collector location in real time, and receive transparent, fair payouts based on recyclable value.
 
----
-
-## Table of Contents
-
-- [Why Electrofine?](#why-electrofine)
-- [Core Features](#core-features)
-- [How It Works](#how-it-works)
-- [Tech Stack](#tech-stack)
-- [Architecture Overview](#architecture-overview)
-- [Getting Started](#getting-started)
-- [Environment Variables](#environment-variables)
-- [Scripts](#scripts)
-- [Project Structure](#project-structure)
-- [API Design (Suggested)](#api-design-suggested)
-- [Realtime Tracking Flow](#realtime-tracking-flow)
-- [Pickup & Pricing Logic](#pickup--pricing-logic)
-- [Security & Privacy](#security--privacy)
-- [Testing Strategy](#testing-strategy)
-- [Deployment Notes](#deployment-notes)
-- [Roadmap](#roadmap)
-- [Contributing](#contributing)
-- [License](#license)
-- [Contact](#contact)
-
----
-
-## Why Electrofine?
-
-Electronic waste is one of the fastest-growing waste streams globally. Many users want to recycle, but existing systems are slow, unclear, and often unfair in pricing.
-
-Electrofine solves this by offering:
-
 - Convenient pickup scheduling
 - Live collector tracking
 - Transparent pricing and payouts
