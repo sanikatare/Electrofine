@@ -9,14 +9,16 @@ import { auth } from "@/lib/auth";
  */
 export async function PATCH(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await context.params;
+
   const session = await auth();
   if (!session?.user || session.user.userType !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const existing = await prisma.category.findUnique({ where: { id: params.id } });
+  const existing = await prisma.category.findUnique({ where: { id } });
   if (!existing) {
     return NextResponse.json({ error: "Category not found" }, { status: 404 });
   }
@@ -26,7 +28,7 @@ export async function PATCH(
 
   try {
     const category = await prisma.category.update({
-      where: { id: params.id },
+      where: { id },
       data: { isActive: false },
     });
     return NextResponse.json({ data: category });
