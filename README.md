@@ -1,6 +1,6 @@
 # Electrofine
 
-> Schedule e-waste pickups, track your collector in real time, and get paid fairly for what you recycle.
+> Schedule e-waste pickups, track your collector in real time, and get paid fairly for what you recyclE.
 
 Electrofine is a modern e-waste recycling platform that helps individuals and businesses dispose of electronic waste responsibly. Users can schedule pickups, monitor collector location in real time, and receive transparent, fair payouts based on recyclable value.
 
