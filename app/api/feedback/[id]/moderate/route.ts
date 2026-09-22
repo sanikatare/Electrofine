@@ -36,7 +36,7 @@ async function recalculateKabadiwalaRating(
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session?.user || session.user.userType !== "ADMIN") {
@@ -59,7 +59,7 @@ export async function PATCH(
   }
   const { status, note } = parsed.data;
 
-  const existing = await prisma.feedback.findUnique({ where: { id: params.id } });
+  const existing = await prisma.feedback.findUnique({ where: { id: (await params).id } });
   if (!existing) {
     return NextResponse.json({ error: "Feedback not found" }, { status: 404 });
   }
@@ -67,7 +67,7 @@ export async function PATCH(
   try {
     const updated = await prisma.$transaction(async (tx) => {
       const feedback = await tx.feedback.update({
-        where: { id: params.id },
+        where: { id: (await params).id },
         data: {
           moderationStatus: status,
           moderationNote: note ?? null,

@@ -19,7 +19,12 @@ interface PickupTimelineProps {
   className?: string;
 }
 
-const STEP_ORDER: PickupStatus[] = ["PENDING", "ASSIGNED", "IN_PROGRESS", "COMPLETED"];
+const STEP_ORDER: Exclude<PickupStatus, "CANCELLED">[] = [
+  "PENDING",
+  "ASSIGNED",
+  "IN_PROGRESS",
+  "COMPLETED",
+];
 
 const STEP_META = {
   PENDING: { label: "Requested", icon: Clock },

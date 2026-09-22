@@ -32,7 +32,7 @@ async function resolveUnitPrice(
 }
 
 function canAccessPickup(
-  session: Awaited<ReturnType<typeof auth>>,
+  session: { user?: { id: string; userType?: string } } | null,
   pickup: { customerId: string; kabadiwalaId: string | null }
 ) {
   if (!session?.user) return false;
@@ -48,7 +48,7 @@ function canAccessPickup(
  */
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session?.user) {
@@ -56,7 +56,7 @@ export async function GET(
   }
 
   const pickup = await prisma.pickupRequest.findUnique({
-    where: { id: params.id },
+    where: { id: (await params).id },
     include: pickupInclude,
   });
   if (!pickup) {
@@ -76,7 +76,7 @@ export async function GET(
  */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session?.user) {
@@ -84,7 +84,7 @@ export async function PUT(
   }
 
   const existing = await prisma.pickupRequest.findUnique({
-    where: { id: params.id },
+    where: { id: (await params).id },
   });
   if (!existing) {
     return NextResponse.json({ error: "Pickup request not found" }, { status: 404 });
@@ -148,10 +148,10 @@ export async function PUT(
         );
 
         // Replace items: delete old, insert new, update totals
-        await tx.pickupItem.deleteMany({ where: { pickupRequestId: params.id } });
+        await tx.pickupItem.deleteMany({ where: { pickupRequestId: (await params).id } });
 
         return tx.pickupRequest.update({
-          where: { id: params.id },
+          where: { id: (await params).id },
           data: {
             ...fields,
             totalWeight,
@@ -163,7 +163,7 @@ export async function PUT(
       }
 
       return tx.pickupRequest.update({
-        where: { id: params.id },
+        where: { id: (await params).id },
         data: fields,
         include: pickupInclude,
       });
@@ -193,7 +193,7 @@ export async function PUT(
  */
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session?.user || session.user.userType !== "ADMIN") {
@@ -201,7 +201,7 @@ export async function DELETE(
   }
 
   const existing = await prisma.pickupRequest.findUnique({
-    where: { id: params.id },
+    where: { id: (await params).id },
   });
   if (!existing) {
     return NextResponse.json({ error: "Pickup request not found" }, { status: 404 });
@@ -210,13 +210,13 @@ export async function DELETE(
   try {
     await prisma.$transaction([
       prisma.notification.updateMany({
-        where: { pickupRequestId: params.id },
+        where: { pickupRequestId: (await params).id },
         data: { pickupRequestId: null },
       }),
-      prisma.feedback.deleteMany({ where: { pickupRequestId: params.id } }),
-      prisma.payment.deleteMany({ where: { pickupRequestId: params.id } }),
-      prisma.pickupItem.deleteMany({ where: { pickupRequestId: params.id } }),
-      prisma.pickupRequest.delete({ where: { id: params.id } }),
+      prisma.feedback.deleteMany({ where: { pickupRequestId: (await params).id } }),
+      prisma.payment.deleteMany({ where: { pickupRequestId: (await params).id } }),
+      prisma.pickupItem.deleteMany({ where: { pickupRequestId: (await params).id } }),
+      prisma.pickupRequest.delete({ where: { id: (await params).id } }),
     ]);
 
     return NextResponse.json(

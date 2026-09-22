@@ -4,6 +4,10 @@ import { auth } from "@/lib/auth";
 
 type MonthRow = { month: string; total: bigint | number };
 
+function monthKey(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
 /**
  * GET /api/admin/dashboard/charts
  * Admin only. Returns the last 12 months of revenue + pickups, current
@@ -22,20 +26,19 @@ export async function GET() {
   twelveMonthsAgo.setHours(0, 0, 0, 0);
 
   try {
-    const [revenueRows, pickupRows, categoryGroups, categories, topKabadiwalas] =
+    const [payments, pickups, categoryGroups, categories, topKabadiwalas] =
       await Promise.all([
-        prisma.$queryRaw<MonthRow[]>`
-          SELECT DATE_FORMAT(paidAt, '%Y-%m') AS month, SUM(amount) AS total
-          FROM payments
-          WHERE status = 'COMPLETED' AND paidAt >= ${twelveMonthsAgo}
-          GROUP BY month ORDER BY month ASC
-        `,
-        prisma.$queryRaw<MonthRow[]>`
-          SELECT DATE_FORMAT(createdAt, '%Y-%m') AS month, COUNT(*) AS total
-          FROM pickup_requests
-          WHERE createdAt >= ${twelveMonthsAgo}
-          GROUP BY month ORDER BY month ASC
-        `,
+        prisma.payment.findMany({
+          where: {
+            status: "COMPLETED",
+            paidAt: { gte: twelveMonthsAgo },
+          },
+          select: { paidAt: true, amount: true },
+        }),
+        prisma.pickupRequest.findMany({
+          where: { createdAt: { gte: twelveMonthsAgo } },
+          select: { createdAt: true },
+        }),
         prisma.pickupItem.groupBy({
           by: ["categoryId"],
           _sum: { weight: true },
@@ -55,6 +58,27 @@ export async function GET() {
       ]);
 
     const categoryMap = new Map(categories.map((c) => [c.id, c.name]));
+    const revenueByMonth = new Map<string, number>();
+    const pickupsByMonth = new Map<string, number>();
+
+    for (const payment of payments) {
+      if (!payment.paidAt) continue;
+      const key = monthKey(payment.paidAt);
+      revenueByMonth.set(key, (revenueByMonth.get(key) ?? 0) + Number(payment.amount ?? 0));
+    }
+
+    for (const pickup of pickups) {
+      const key = monthKey(pickup.createdAt);
+      pickupsByMonth.set(key, (pickupsByMonth.get(key) ?? 0) + 1);
+    }
+
+    const revenueRows: MonthRow[] = [...revenueByMonth.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([month, total]) => ({ month, total }));
+
+    const pickupRows: MonthRow[] = [...pickupsByMonth.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([month, total]) => ({ month, total }));
 
     const rankedKabadiwalas = [...topKabadiwalas]
       .sort((a, b) => b._count.pickupRequests - a._count.pickupRequests)

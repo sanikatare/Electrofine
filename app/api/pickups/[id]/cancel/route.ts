@@ -11,7 +11,7 @@ import { auth } from "@/lib/auth";
  */
 export async function PATCH(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session?.user) {
@@ -19,7 +19,7 @@ export async function PATCH(
   }
 
   const existing = await prisma.pickupRequest.findUnique({
-    where: { id: params.id },
+    where: { id: (await params).id },
   });
   if (!existing) {
     return NextResponse.json({ error: "Pickup request not found" }, { status: 404 });
@@ -42,7 +42,7 @@ export async function PATCH(
   try {
     const [cancelled] = await prisma.$transaction([
       prisma.pickupRequest.update({
-        where: { id: params.id },
+        where: { id: (await params).id },
         data: { status: "CANCELLED" },
       }),
       prisma.notification.create({
@@ -50,7 +50,7 @@ export async function PATCH(
           type: "PICKUP_UPDATE",
           channel: "IN_APP",
           title: "Pickup Request Cancelled",
-          message: `Pickup request ${params.id} has been cancelled.`,
+          message: `Pickup request ${(await params).id} has been cancelled.`,
           customerId: existing.customerId,
           kabadiwalaId: existing.kabadiwalaId,
           pickupRequestId: existing.id,

@@ -16,7 +16,7 @@ const customerSelect = {
 } satisfies Prisma.CustomerSelect;
 
 function canAccess(
-  session: Awaited<ReturnType<typeof auth>>,
+  session: { user?: { id: string; userType?: string } } | null,
   customerId: string
 ) {
   if (!session?.user) return false;
@@ -30,16 +30,16 @@ function canAccess(
  */
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!canAccess(session, params.id)) {
+  if (!canAccess(session, (await params).id)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
     const customer = await prisma.customer.findUnique({
-      where: { id: params.id },
+      where: { id: (await params).id },
       select: customerSelect,
     });
 
@@ -63,10 +63,10 @@ export async function GET(
  */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!canAccess(session, params.id)) {
+  if (!canAccess(session, (await params).id)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -94,14 +94,14 @@ export async function PUT(
 
   try {
     const existing = await prisma.customer.findUnique({
-      where: { id: params.id },
+      where: { id: (await params).id },
     });
     if (!existing) {
       return NextResponse.json({ error: "Customer not found" }, { status: 404 });
     }
 
     const customer = await prisma.customer.update({
-      where: { id: params.id },
+      where: { id: (await params).id },
       data: {
         ...rest,
         ...(password && { passwordHash: await bcrypt.hash(password, 10) }),
@@ -134,7 +134,7 @@ export async function PUT(
  */
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session?.user || session.user.userType !== "ADMIN") {
@@ -143,14 +143,14 @@ export async function DELETE(
 
   try {
     const existing = await prisma.customer.findUnique({
-      where: { id: params.id },
+      where: { id: (await params).id },
     });
     if (!existing) {
       return NextResponse.json({ error: "Customer not found" }, { status: 404 });
     }
 
     await prisma.customer.update({
-      where: { id: params.id },
+      where: { id: (await params).id },
       data: { isActive: false },
     });
 

@@ -5,6 +5,13 @@ import { toCsv, csvResponse } from "@/lib/reports/csv";
 
 type WasteRow = { period: string; weightKg: number };
 
+function formatPeriod(date: Date, period: "monthly" | "yearly"): string {
+  if (period === "yearly") {
+    return `${date.getFullYear()}`;
+  }
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
 /**
  * GET /api/reports/waste-collection?period=monthly|yearly&from=&to=&format=json|csv
  * Admin only. Groups total weight of COMPLETED pickups by month or year.
@@ -20,23 +27,31 @@ export async function GET(request: NextRequest) {
   const from = request.nextUrl.searchParams.get("from");
   const to = request.nextUrl.searchParams.get("to");
 
-  const dateFormat = period === "yearly" ? "%Y" : "%Y-%m";
   const fromDate = from ? new Date(from) : new Date(new Date().getFullYear() - 1, 0, 1);
   const toDate = to ? new Date(to) : new Date();
 
   try {
-    const rows = await prisma.$queryRaw<WasteRow[]>`
-      SELECT DATE_FORMAT(completedAt, ${dateFormat}) AS period, SUM(totalWeight) AS weightKg
-      FROM pickup_requests
-      WHERE status = 'COMPLETED' AND completedAt >= ${fromDate} AND completedAt <= ${toDate}
-      GROUP BY period
-      ORDER BY period ASC
-    `;
+    const pickups = await prisma.pickupRequest.findMany({
+      where: {
+        status: "COMPLETED",
+        completedAt: { gte: fromDate, lte: toDate },
+      },
+      select: { completedAt: true, totalWeight: true },
+    });
 
-    const data: WasteRow[] = rows.map((r) => ({
-      period: r.period,
-      weightKg: Number(r.weightKg ?? 0),
-    }));
+    const weightByPeriod = new Map<string, number>();
+    for (const pickup of pickups) {
+      if (!pickup.completedAt) continue;
+      const key = formatPeriod(pickup.completedAt, period);
+      weightByPeriod.set(
+        key,
+        (weightByPeriod.get(key) ?? 0) + Number(pickup.totalWeight ?? 0)
+      );
+    }
+
+    const data: WasteRow[] = [...weightByPeriod.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([period, weightKg]) => ({ period, weightKg }));
 
     if (format === "csv") {
       const csv = toCsv(data, [
