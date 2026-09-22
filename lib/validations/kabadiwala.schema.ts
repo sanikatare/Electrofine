@@ -9,13 +9,8 @@ export const kabadiwalaCreateSchema = z.object({
   name: z.string().trim().min(2).max(100),
   phone: z.string().trim().regex(phoneRegex, "Invalid phone number"),
   email: z.string().trim().email("Invalid email").optional().nullable(),
-  password: z.string().min(8).max(72).optional(),
-  vehicleNumber: z
-    .string()
-    .trim()
-    .regex(vehicleRegex, "Invalid vehicle number")
-    .optional()
-    .nullable(),
+  password: z.string().min(8).max(72),
+  vehicleNumber: z.string().trim().regex(vehicleRegex, "Invalid vehicle number").optional().nullable(),
   serviceArea: z.string().trim().max(150).optional().nullable(),
   availability: availabilityEnum.optional().default("AVAILABLE"),
   rating: z.number().min(0).max(5).optional(),
@@ -28,10 +23,7 @@ export const kabadiwalaQuerySchema = z.object({
   search: z.string().trim().optional(),
   availability: availabilityEnum.optional(),
   serviceArea: z.string().trim().optional(),
-  isActive: z
-    .enum(["true", "false"])
-    .transform((v) => v === "true")
-    .optional(),
+  isActive: z.enum(["true", "false"]).transform((v) => v === "true").optional(),
   page: z.coerce.number().int().min(1).optional().default(1),
   limit: z.coerce.number().int().min(1).max(100).optional().default(20),
 });
