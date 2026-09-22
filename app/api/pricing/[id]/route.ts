@@ -23,10 +23,10 @@ const pricingInclude = {
  */
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const pricing = await prisma.pricing.findUnique({
-    where: { id: params.id },
+    where: { id: (await params).id },
     include: pricingInclude,
   });
   if (!pricing) {
@@ -42,7 +42,7 @@ export async function GET(
  */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session?.user || session.user.userType !== "ADMIN") {
@@ -66,7 +66,7 @@ export async function PUT(
   const input = parsed.data;
 
   try {
-    const existing = await prisma.pricing.findUnique({ where: { id: params.id } });
+    const existing = await prisma.pricing.findUnique({ where: { id: (await params).id } });
     if (!existing) {
       return NextResponse.json({ error: "Pricing record not found" }, { status: 404 });
     }
@@ -78,14 +78,14 @@ export async function PUT(
             categoryId: existing.categoryId,
             isActive: true,
             effectiveTo: null,
-            id: { not: params.id },
+            id: { not: (await params).id },
           },
           data: { isActive: false, effectiveTo: new Date() },
         });
       }
 
       return tx.pricing.update({
-        where: { id: params.id },
+        where: { id: (await params).id },
         data: input,
         include: pricingInclude,
       });
@@ -108,20 +108,20 @@ export async function PUT(
  */
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session?.user || session.user.userType !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const existing = await prisma.pricing.findUnique({ where: { id: params.id } });
+  const existing = await prisma.pricing.findUnique({ where: { id: (await params).id } });
   if (!existing) {
     return NextResponse.json({ error: "Pricing record not found" }, { status: 404 });
   }
 
   try {
-    await prisma.pricing.delete({ where: { id: params.id } });
+    await prisma.pricing.delete({ where: { id: (await params).id } });
     return NextResponse.json(
       { message: "Pricing record deleted successfully" },
       { status: 200 }

@@ -6,7 +6,7 @@ import { cloudinary } from "@/lib/cloudinary";
 export const runtime = "nodejs";
 
 function canAccessPickup(
-  session: Awaited<ReturnType<typeof auth>>,
+  session: { user?: { id: string; userType?: string } } | null,
   pickup: { customerId: string; kabadiwalaId: string | null }
 ) {
   if (!session?.user) return false;
@@ -25,7 +25,7 @@ function canAccessPickup(
  */
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: { id: string; imageId: string } }
+  { params }: { params: Promise<{ id: string; imageId: string }> }
 ) {
   const session = await auth();
   if (!session?.user) {
@@ -33,7 +33,7 @@ export async function DELETE(
   }
 
   const pickup = await prisma.pickupRequest.findUnique({
-    where: { id: params.id },
+    where: { id: (await params).id },
   });
   if (!pickup) {
     return NextResponse.json({ error: "Pickup request not found" }, { status: 404 });
@@ -43,9 +43,9 @@ export async function DELETE(
   }
 
   const image = await prisma.pickupImage.findUnique({
-    where: { id: params.imageId },
+    where: { id: (await params).imageId },
   });
-  if (!image || image.pickupRequestId !== params.id) {
+  if (!image || image.pickupRequestId !== (await params).id) {
     return NextResponse.json({ error: "Image not found" }, { status: 404 });
   }
 
@@ -61,7 +61,7 @@ export async function DELETE(
       );
     }
 
-    await prisma.pickupImage.delete({ where: { id: params.imageId } });
+    await prisma.pickupImage.delete({ where: { id: (await params).imageId } });
 
     return NextResponse.json(
       { message: "Image deleted successfully" },

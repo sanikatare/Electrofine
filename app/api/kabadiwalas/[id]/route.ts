@@ -22,7 +22,7 @@ const kabadiwalaSelect = {
 } satisfies Prisma.KabadiwalaSelect;
 
 function canAccess(
-  session: Awaited<ReturnType<typeof auth>>,
+  session: { user?: { id: string; userType?: string } } | null,
   kabadiwalaId: string
 ) {
   if (!session?.user) return false;
@@ -32,15 +32,15 @@ function canAccess(
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!canAccess(session, params.id)) {
+  if (!canAccess(session, (await params).id)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const kabadiwala = await prisma.kabadiwala.findUnique({
-    where: { id: params.id },
+    where: { id: (await params).id },
     select: kabadiwalaSelect,
   });
   if (!kabadiwala) {
@@ -52,10 +52,10 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!canAccess(session, params.id)) {
+  if (!canAccess(session, (await params).id)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -80,13 +80,13 @@ export async function PUT(
   }
 
   try {
-    const existing = await prisma.kabadiwala.findUnique({ where: { id: params.id } });
+    const existing = await prisma.kabadiwala.findUnique({ where: { id: (await params).id } });
     if (!existing) {
       return NextResponse.json({ error: "Kabadiwala not found" }, { status: 404 });
     }
 
     const kabadiwala = await prisma.kabadiwala.update({
-      where: { id: params.id },
+      where: { id: (await params).id },
       data: {
         ...rest,
         ...(password && { passwordHash: await bcrypt.hash(password, 10) }),
@@ -115,21 +115,21 @@ export async function PUT(
 
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session?.user || session.user.userType !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const existing = await prisma.kabadiwala.findUnique({ where: { id: params.id } });
+  const existing = await prisma.kabadiwala.findUnique({ where: { id: (await params).id } });
   if (!existing) {
     return NextResponse.json({ error: "Kabadiwala not found" }, { status: 404 });
   }
 
   try {
     await prisma.kabadiwala.update({
-      where: { id: params.id },
+      where: { id: (await params).id },
       data: { isActive: false },
     });
 

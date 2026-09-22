@@ -16,7 +16,7 @@ export const runtime = "nodejs";
  */
 
 function canAccessPickup(
-  session: Awaited<ReturnType<typeof auth>>,
+  session: { user?: { id: string; userType?: string } } | null,
   pickup: { customerId: string; kabadiwalaId: string | null }
 ) {
   if (!session?.user) return false;
@@ -51,7 +51,7 @@ function uploadBufferToCloudinary(
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session?.user) {
@@ -59,7 +59,7 @@ export async function POST(
   }
 
   const pickup = await prisma.pickupRequest.findUnique({
-    where: { id: params.id },
+    where: { id: (await params).id },
   });
   if (!pickup) {
     return NextResponse.json({ error: "Pickup request not found" }, { status: 404 });
@@ -81,7 +81,7 @@ export async function POST(
   const files = formData.getAll("files").filter((f): f is File => f instanceof File);
 
   const existingCount = await prisma.pickupImage.count({
-    where: { pickupRequestId: params.id },
+    where: { pickupRequestId: (await params).id },
   });
 
   const validation = validateImageBatch(files, existingCount);
@@ -96,11 +96,11 @@ export async function POST(
         const buffer = Buffer.from(arrayBuffer);
         const result = await uploadBufferToCloudinary(
           buffer,
-          `ecokabadi/pickups/${params.id}`
+          `ecokabadi/pickups/${(await params).id}`
         );
         return prisma.pickupImage.create({
           data: {
-            pickupRequestId: params.id,
+            pickupRequestId: (await params).id,
             url: result.secure_url,
             publicId: result.public_id,
             uploadedById: session.user.id,
@@ -132,7 +132,7 @@ export async function POST(
  */
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session?.user) {
@@ -140,7 +140,7 @@ export async function GET(
   }
 
   const pickup = await prisma.pickupRequest.findUnique({
-    where: { id: params.id },
+    where: { id: (await params).id },
   });
   if (!pickup) {
     return NextResponse.json({ error: "Pickup request not found" }, { status: 404 });
@@ -150,7 +150,7 @@ export async function GET(
   }
 
   const images = await prisma.pickupImage.findMany({
-    where: { pickupRequestId: params.id },
+    where: { pickupRequestId: (await params).id },
     orderBy: { createdAt: "desc" },
   });
 

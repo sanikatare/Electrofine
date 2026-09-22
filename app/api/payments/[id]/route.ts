@@ -29,7 +29,7 @@ const paymentInclude = {
 } satisfies Prisma.PaymentInclude;
 
 function canAccess(
-  session: Awaited<ReturnType<typeof auth>>,
+  session: { user?: { id: string; userType?: string } } | null,
   payment: { customerId: string }
 ) {
   if (!session?.user) return false;
@@ -42,11 +42,11 @@ function canAccess(
  */
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   const payment = await prisma.payment.findUnique({
-    where: { id: params.id },
+    where: { id: (await params).id },
     include: paymentInclude,
   });
   if (!payment) {
@@ -67,7 +67,7 @@ export async function GET(
  */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session?.user || session.user.userType !== "ADMIN") {
@@ -91,7 +91,7 @@ export async function PUT(
   const input = parsed.data;
 
   try {
-    const existing = await prisma.payment.findUnique({ where: { id: params.id } });
+    const existing = await prisma.payment.findUnique({ where: { id: (await params).id } });
     if (!existing) {
       return NextResponse.json({ error: "Payment not found" }, { status: 404 });
     }
@@ -100,7 +100,7 @@ export async function PUT(
       const dbStatus = input.status ? toDbStatus(input.status) : undefined;
 
       return tx.payment.update({
-        where: { id: params.id },
+        where: { id: (await params).id },
         data: {
           ...(input.method && { method: input.method }),
           ...(dbStatus && { status: dbStatus }),
@@ -132,20 +132,20 @@ export async function PUT(
  */
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session?.user || session.user.userType !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const existing = await prisma.payment.findUnique({ where: { id: params.id } });
+  const existing = await prisma.payment.findUnique({ where: { id: (await params).id } });
   if (!existing) {
     return NextResponse.json({ error: "Payment not found" }, { status: 404 });
   }
 
   try {
-    await prisma.payment.delete({ where: { id: params.id } });
+    await prisma.payment.delete({ where: { id: (await params).id } });
     return NextResponse.json(
       { message: "Payment deleted successfully" },
       { status: 200 }

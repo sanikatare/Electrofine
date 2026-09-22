@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
 function canAccess(
-  session: Awaited<ReturnType<typeof auth>>,
+  session: { user?: { id: string; userType?: string } } | null,
   notification: { customerId: string | null; kabadiwalaId: string | null }
 ) {
   if (!session?.user) return false;
@@ -22,7 +22,7 @@ function canAccess(
  */
 export async function PATCH(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session?.user) {
@@ -30,7 +30,7 @@ export async function PATCH(
   }
 
   const existing = await prisma.notification.findUnique({
-    where: { id: params.id },
+    where: { id: (await params).id },
   });
   if (!existing) {
     return NextResponse.json({ error: "Notification not found" }, { status: 404 });
@@ -45,7 +45,7 @@ export async function PATCH(
 
   try {
     const updated = await prisma.notification.update({
-      where: { id: params.id },
+      where: { id: (await params).id },
       data: { isRead: true },
     });
     return NextResponse.json({ data: updated });

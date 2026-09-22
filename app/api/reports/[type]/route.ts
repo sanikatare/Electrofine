@@ -34,14 +34,14 @@ function parseDateRange(request: NextRequest): DateRange {
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { type: string } }
+  { params }: { params: Promise<{ type: string }> }
 ) {
   const session = await auth();
   if (!session?.user || session.user.userType !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const type = params.type as ReportType;
+  const type = (await params).type as ReportType;
   if (!VALID_TYPES.includes(type)) {
     return NextResponse.json(
       { error: `Invalid report type. Expected one of: ${VALID_TYPES.join(", ")}` },

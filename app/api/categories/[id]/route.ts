@@ -10,9 +10,9 @@ import { categoryUpdateSchema } from "@/lib/validations/category.schema";
  */
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const category = await prisma.category.findUnique({ where: { id: params.id } });
+  const category = await prisma.category.findUnique({ where: { id: (await params).id } });
   if (!category) {
     return NextResponse.json({ error: "Category not found" }, { status: 404 });
   }
@@ -25,7 +25,7 @@ export async function GET(
  */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session?.user || session.user.userType !== "ADMIN") {
@@ -48,13 +48,13 @@ export async function PUT(
   }
 
   try {
-    const existing = await prisma.category.findUnique({ where: { id: params.id } });
+    const existing = await prisma.category.findUnique({ where: { id: (await params).id } });
     if (!existing) {
       return NextResponse.json({ error: "Category not found" }, { status: 404 });
     }
 
     const category = await prisma.category.update({
-      where: { id: params.id },
+      where: { id: (await params).id },
       data: parsed.data,
     });
     return NextResponse.json({ data: category });
@@ -83,20 +83,20 @@ export async function PUT(
  */
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session?.user || session.user.userType !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const existing = await prisma.category.findUnique({ where: { id: params.id } });
+  const existing = await prisma.category.findUnique({ where: { id: (await params).id } });
   if (!existing) {
     return NextResponse.json({ error: "Category not found" }, { status: 404 });
   }
 
   const inUseCount = await prisma.pickupItem.count({
-    where: { categoryId: params.id },
+    where: { categoryId: (await params).id },
   });
   if (inUseCount > 0) {
     return NextResponse.json(
@@ -110,8 +110,8 @@ export async function DELETE(
 
   try {
     await prisma.$transaction([
-      prisma.pricing.deleteMany({ where: { categoryId: params.id } }),
-      prisma.category.delete({ where: { id: params.id } }),
+      prisma.pricing.deleteMany({ where: { categoryId: (await params).id } }),
+      prisma.category.delete({ where: { id: (await params).id } }),
     ]);
     return NextResponse.json(
       { message: "Category deleted successfully" },

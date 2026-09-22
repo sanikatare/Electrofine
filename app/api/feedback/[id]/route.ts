@@ -38,7 +38,7 @@ async function recalculateKabadiwalaRating(
  */
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session?.user) {
@@ -46,7 +46,7 @@ export async function GET(
   }
 
   const feedback = await prisma.feedback.findUnique({
-    where: { id: params.id },
+    where: { id: (await params).id },
     include: feedbackInclude,
   });
   if (!feedback) {
@@ -76,14 +76,14 @@ export async function GET(
  */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session?.user || session.user.userType !== "CUSTOMER") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const existing = await prisma.feedback.findUnique({ where: { id: params.id } });
+  const existing = await prisma.feedback.findUnique({ where: { id: (await params).id } });
   if (!existing) {
     return NextResponse.json({ error: "Feedback not found" }, { status: 404 });
   }
@@ -114,7 +114,7 @@ export async function PUT(
 
   try {
     const updated = await prisma.feedback.update({
-      where: { id: params.id },
+      where: { id: (await params).id },
       data: parsed.data,
       include: feedbackInclude,
     });
@@ -135,21 +135,21 @@ export async function PUT(
  */
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session?.user || session.user.userType !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const existing = await prisma.feedback.findUnique({ where: { id: params.id } });
+  const existing = await prisma.feedback.findUnique({ where: { id: (await params).id } });
   if (!existing) {
     return NextResponse.json({ error: "Feedback not found" }, { status: 404 });
   }
 
   try {
     await prisma.$transaction(async (tx) => {
-      await tx.feedback.delete({ where: { id: params.id } });
+      await tx.feedback.delete({ where: { id: (await params).id } });
       if (existing.moderationStatus === "APPROVED" && existing.kabadiwalaId) {
         await recalculateKabadiwalaRating(tx, existing.kabadiwalaId);
       }

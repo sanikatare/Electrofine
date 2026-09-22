@@ -4,6 +4,10 @@ import { auth } from "@/lib/auth";
 
 const MONTHS_OF_HISTORY = 6;
 
+function monthKey(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
 /**
  * GET /api/customer/dashboard
  * Customer only — returns their own summary in one response:
@@ -46,15 +50,13 @@ export async function GET() {
         where: { customerId, status: "COMPLETED" },
       }),
 
-      // Grouped monthly counts via raw aggregation (Prisma's groupBy can't
-      // truncate dates to month natively) — parameterized to avoid injection.
-      prisma.$queryRaw<
-        { month: string; count: bigint }[]
-      >`SELECT DATE_FORMAT(createdAt, '%Y-%m') AS month, COUNT(*) AS count
-        FROM pickup_requests
-        WHERE customerId = ${customerId} AND createdAt >= ${sinceDate}
-        GROUP BY month
-        ORDER BY month ASC`,
+      prisma.pickupRequest.findMany({
+        where: {
+          customerId,
+          createdAt: { gte: sinceDate },
+        },
+        select: { createdAt: true },
+      }),
 
       prisma.pickupRequest.findMany({
         where: { customerId },
@@ -74,9 +76,11 @@ export async function GET() {
     ]);
 
     // Fill in months with zero pickups so the series has no gaps
-    const monthlyMap = new Map(
-      monthlyRows.map((r) => [r.month, Number(r.count)])
-    );
+    const monthlyMap = new Map<string, number>();
+    for (const row of monthlyRows) {
+      const key = monthKey(row.createdAt);
+      monthlyMap.set(key, (monthlyMap.get(key) ?? 0) + 1);
+    }
     const monthlyPickups: { month: string; count: number }[] = [];
     const cursor = new Date(sinceDate);
     for (let i = 0; i < MONTHS_OF_HISTORY; i++) {

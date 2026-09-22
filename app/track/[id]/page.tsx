@@ -5,7 +5,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface TrackPageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 /**
@@ -14,8 +14,10 @@ interface TrackPageProps {
  * printed on a pickup docket.
  */
 export default async function TrackPickupPage({ params }: TrackPageProps) {
+  const { id } = await params;
+
   const pickup = await prisma.pickupRequest.findUnique({
-    where: { id: params.id },
+    where: { id },
     select: {
       id: true,
       status: true,

@@ -8,7 +8,7 @@ import {
 } from "@/lib/qr/generate-qr";
 
 function canAccessPickup(
-  session: Awaited<ReturnType<typeof auth>>,
+  session: { user?: { id: string; userType?: string } } | null,
   pickup: { customerId: string; kabadiwalaId: string | null }
 ) {
   if (!session?.user) return false;
@@ -27,7 +27,7 @@ function canAccessPickup(
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session?.user) {
@@ -35,7 +35,7 @@ export async function GET(
   }
 
   const pickup = await prisma.pickupRequest.findUnique({
-    where: { id: params.id },
+    where: { id: (await params).id },
   });
   if (!pickup) {
     return NextResponse.json({ error: "Pickup request not found" }, { status: 404 });
@@ -48,17 +48,17 @@ export async function GET(
 
   try {
     if (format === "dataurl") {
-      const dataUrl = await generatePickupQrDataUrl(params.id);
+      const dataUrl = await generatePickupQrDataUrl((await params).id);
       return NextResponse.json({
-        data: { dataUrl, trackingUrl: getTrackingUrl(params.id) },
+        data: { dataUrl, trackingUrl: getTrackingUrl((await params).id) },
       });
     }
 
-    const buffer = await generatePickupQrBuffer(params.id);
-    return new NextResponse(buffer, {
+    const buffer = await generatePickupQrBuffer((await params).id);
+    return new NextResponse(new Uint8Array(buffer), {
       headers: {
         "Content-Type": "image/png",
-        "Content-Disposition": `inline; filename="pickup-${params.id}-qr.png"`,
+        "Content-Disposition": `inline; filename="pickup-${(await params).id}-qr.png"`,
         "Cache-Control": "private, max-age=3600",
       },
     });
