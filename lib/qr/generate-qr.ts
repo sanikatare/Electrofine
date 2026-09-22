@@ -2,10 +2,14 @@ import QRCode from "qrcode";
 
 /**
  * Builds the public tracking URL for a pickup request.
- * Requires NEXT_PUBLIC_APP_URL to be set (e.g. https://electrofine.com).
+ * In Vercel, prefer the configured public URL or the generated Vercel domain;
+ * only fall back to localhost for local development.
  */
 export function getTrackingUrl(pickupId: string): string {
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const base =
+    process.env.NEXT_PUBLIC_APP_URL ??
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+
   return `${base.replace(/\/$/, "")}/track/${pickupId}`;
 }
 
