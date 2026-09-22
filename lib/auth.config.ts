@@ -7,6 +7,8 @@ import type { NextAuthConfig } from "next-auth";
  * The Credentials provider itself is registered in lib/auth.ts.
  */
 export const authConfig: NextAuthConfig = {
+  trustHost: true,
+
   pages: {
     signIn: "/login",
     error: "/login",
